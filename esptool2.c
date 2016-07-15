@@ -47,7 +47,7 @@ typedef struct {
 
 static const char PADDING[IMAGE_PADDING] = {0};
 
-static bool debugon = false;
+static int  debugon = 0;
 static bool quieton = false;
 
 // Print a standard info message (unless quiet mode)
@@ -62,10 +62,10 @@ void print(const char* format, ...) {
 }
 
 // Print a debug message (if debug mode)
-void debug(const char* format, ...) {
+void debug(int lvl, const char* format, ...) {
     va_list args;
 
-	if (debugon) {
+	if (debugon && lvl <= debugon) {
 		va_start(args, format);
 		vprintf(format, args);
 		va_end(args);
@@ -117,7 +117,7 @@ bool WriteElfSection(MyElf_File *elf, FILE *outfile, char* name, bool headed,
 		}
 	}
 
-	debug("Adding section '%s', addr: 0x%08x, size: %d (+%d bytes(s) padding).\r\n",
+	debug(1,"Adding section '%s', addr: 0x%08x, size: %d (+%d bytes(s) padding).\r\n",
 		name, sect->address, sect->size, pad);
 	
 	// get elf section binary data
@@ -230,7 +230,7 @@ bool CreateHeaderFile(char *elffile, char *imagefile, char *sections[], int nums
 		}
 
 		// add address, length and start the data block
-		debug("Adding section '%s', addr: 0x%08x, size: %d.\r\n", sections[i], sect->address, sect->size);
+		debug(1,"Adding section '%s', addr: 0x%08x, size: %d.\r\n", sections[i], sect->address, sect->size);
 		fprintf(outfile, "\r\nconst uint32 %s_addr = 0x%08x;\r\nconst uint32 %s_len = %d;\r\nconst uint8  %s_data[] = {",
 			name, (unsigned int)sect->address, name, (int)sect->size, name);
 
@@ -296,10 +296,10 @@ bool CreateBinFile(char *elffile, char *imagefile, int bootver, unsigned char mo
 	//imghead.byte3 = (int)((int)size << 4 | clock) && 0xff;
 	imghead.byte3 = ((size << 4) | clock) & 0xff;
 	imghead.entry = elf->header.e_entry;
-	debug("Size = %02x\r\n", size);
-	debug("Byte2 = %02x\r\n", imghead.byte2);
-	debug("Byte3 = %02x\r\n", imghead.byte3);
-	debug("Entry = %08x\r\n", imghead.entry);
+	debug(2,"Size = %02x\r\n", size);
+	debug(2,"Byte2 = %02x\r\n", imghead.byte2);
+	debug(2,"Byte3 = %02x\r\n", imghead.byte3);
+	debug(2,"Entry = %08x\r\n", imghead.entry);
 
 	// boot v1.2+ header
 	if (bootver == 2) {
@@ -338,7 +338,7 @@ bool CreateBinFile(char *elffile, char *imagefile, int bootver, unsigned char mo
 	pad = len % IMAGE_PADDING;
 	if (pad > 0) {
 		pad = IMAGE_PADDING - pad;
-		debug("Padding image with %d byte(s).\r\n", pad);
+		debug(2,"Padding image with %d byte(s).\r\n", pad);
 		if(fwrite(PADDING, 1, pad, outfile) != pad) {
 			error("Error: Failed to write padding to image file.\r\n");
 			goto end_function;
@@ -355,7 +355,7 @@ bool CreateBinFile(char *elffile, char *imagefile, int bootver, unsigned char mo
 	if(bootver == 1) {
 		// write 'ff' padding up to the position of the library
 		len = 0x10000 - ftell(outfile);
-		debug("Adding boot v1.1 padding, %d bytes of '0xff'.\r\n", len);
+		debug(2,"Adding boot v1.1 padding, %d bytes of '0xff'.\r\n", len);
 		data = (unsigned char*)malloc(len);
 		memset(data, 0xff, len);
 		if(fwrite(data, 1, len, outfile) != len) {
@@ -411,8 +411,10 @@ int main(int argc, char *argv[]) {
 			opts++;
 		} else if (!strcmp(argv[i], "-quiet")) {
 			quieton = true;
+		} else if (!strcmp(argv[i], "-info")) {
+			debugon = 1;
 		} else if (!strcmp(argv[i], "-debug")) {
-			debugon = true;
+			debugon = 2;
 		} else if (!strcmp(argv[i], "-boot0")) {
 			bootver = 0;
 		} else if (!strcmp(argv[i], "-boot1")) {
@@ -458,16 +460,16 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	print("esptool2 v2.0.0 - (c) 2015 Richard A Burton <richardaburton@gmail.com>\r\n");
-	print("This program is licensed under the GPL v3.\r\n");
-    print("See the file LICENSE for details.\r\n\r\n");
-
 	if (paramerror) {
 		error("Error: Unrecognised option '%s'.\r\n", argv[i]);
 		return -1;
 	}
 
 	if (argc < 2) {
+		print("esptool2 v2.0.0 - (c) 2015 Richard A Burton <richardaburton@gmail.com>\r\n");
+		print("This program is licensed under the GPL v3.\r\n");
+		print("See the file LICENSE for details.\r\n\r\n");
+
 		print("Usage:\r\n");
 		print("esptool2 -lib [options] <input_file> <output_file>\r\n");
 		print("esptool2 -bin [options] <input_file> <output_file> <elf_section>...\r\n");
@@ -499,6 +501,7 @@ int main(int argc, char *argv[]) {
 		print("General options:\r\n");
 		print("  -quiet prints only error messages\r\n");
 		print("  -debug print extra debug information\r\n");
+		print("  -info  print less debug information\r\n");
 		print("  -- no more options follow (needed if your elf file starts with a '-')\r\n");
 		print("\r\n");
 		print("Returns:\r\n");
@@ -515,7 +518,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (quieton && debugon) {
-		error("Error: You cannot specify -quiet and -debug.\r\n");
+		error("Error: You cannot specify -quiet and (-debug or -info).\r\n");
 		return -1;
 	}
 

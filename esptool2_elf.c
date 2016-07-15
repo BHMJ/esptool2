@@ -34,12 +34,12 @@ MyElf_Section* GetElfSection(MyElf_File *elf, char *name) {
 
     for(i = 0; i < elf->header.e_shnum - 1; i++) {
 		if(!strcmp(name, elf->sections[i].name)) {
-			debug("Found section '%s'.\r\n", name);
+			debug(2,"Found section '%s'.\r\n", name);
 			return &elf->sections[i];
 		}
 	}
 
-	debug("Could not find section '%s'.\r\n", name);
+	debug(1,"Could not find section '%s'.\r\n", name);
 	return 0;
 }
 
@@ -152,7 +152,7 @@ MyElf_File* LoadElf(char *infile) {
             error("Error: Can't read section %d from elf file.\r\n", i);
             break;
 		}
-		debug("Read section %d '%s'.\r\n", i, elf->strings + temp.sh_name);
+		debug(2,"Read section %d '%s' (%u bytes).\r\n", i, elf->strings + temp.sh_name, temp.sh_size);
 		elf->sections[i-1].address = temp.sh_addr;
 		elf->sections[i-1].offset = temp.sh_offset;
 		elf->sections[i-1].size = temp.sh_size;
@@ -174,7 +174,7 @@ error_exit:
 // Close an elf file and dispose of the MyElf_File structure.
 void UnloadElf(MyElf_File *elf) {
 	if (elf) {
-		debug("Unloading elf file.\r\n");
+		debug(2,"Unloading elf file.\r\n");
 		if(elf->fd) fclose(elf->fd);
 		if(elf->strings) free(elf->strings);
 		if(elf->sections) free(elf->sections);

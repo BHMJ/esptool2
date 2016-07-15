@@ -37,7 +37,7 @@ typedef unsigned __int32  uint32_t;
 #define false 0
 #define bool char
 
-void debug( const char* format, ... );
+void debug( int lvl, const char* format, ... );
 void print( const char* format, ... );
 void error( const char* format, ... );
 
